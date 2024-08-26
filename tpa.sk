@@ -103,3 +103,9 @@ function executeTeleport(p: player):
 			send "{@color3}Teleport cancelled because the other player moved!" to {_destination}
 			stop
 		wait 1 second
+
+	teleport {_teleporter} to {_destination}
+	play sound "entity.player.levelup" to {_teleporter}
+	play sound "entity.player.levelup" to {_destination}
+	delete {request::player::%{_p}'s uuid%}
+	delete {requesthere::player::%{_p}'s uuid%}
