@@ -1,0 +1,105 @@
+options:
+	color1: &7
+	color2: <##37BFF8>
+	color3: <##F00000> #this is the color if you move on teleport/cancel teleport
+	color4: <##135BFB>
+
+command tpa <player>:
+	cooldown: 7 seconds
+	cooldown message: {@color3}Teleporting is on cooldown.
+	trigger:
+		play sound "entity.player.levelup" to player
+		play sound "entity.player.levelup" to arg-1
+		send "{@color1}Teleport request received from {@color2}%player%" to arg-1
+		send "{@color1}Teleport request sent to {@color2}%arg-1%." to player
+		set {request::player::%arg-1's uuid%} to player
+		wait 30 seconds
+		if {request::player::%arg-1's uuid%} is set:
+			delete {request::player::%arg-1's uuid%}
+
+command tpaccept:
+	trigger:
+		if {request::player::%player's uuid%} is set:
+			openTpaMenu(player)
+		else if {requesthere::player::%player's uuid%} is set:
+			openTpaMenu(player)
+		else:
+			send "{@color3}You don't have any pending teleport requests." to player
+
+command tpahere <player>:
+	cooldown: 7 seconds
+	cooldown message: {@color3}Teleporting is on cooldown.
+	trigger:
+		send "{@color1}{@color2}%player% {@color1}sent you a tpahere request, accept it to teleport." to arg-1
+		play sound "entity.player.levelup" to player
+		play sound "entity.player.levelup" to arg-1
+		send "{@color1}You requested the user {@color2}%arg-1% {@color1}to teleport to you." to player
+		set {requesthere::player::%arg-1's uuid%} to player
+		wait 30 seconds
+		if {requesthere::player::%arg-1's uuid%} is set:
+			delete {requesthere::player::%arg-1's uuid%}
+
+command tpacancel:
+	trigger:
+		send "{@color3}Cancelled all pending requests." to player
+		delete {request::player::%player's uuid%}
+		delete {requesthere::player::%player's uuid%}
+
+function openTpaMenu(p: player):
+	set {_gui} to chest inventory with 3 rows named "Teleport Request"
+	set {_slot} to 0
+	loop 27 times:
+		set slot {_slot} of {_gui} to gray stained glass pane named " "
+		add 1 to {_slot}
+	set slot 11 of {_gui} to lime wool named "{@color2}Accept"
+	set slot 15 of {_gui} to red wool named "{@color3}Deny"
+	open {_gui} to {_p}
+
+on inventory click:
+	if name of event-inventory is "Teleport Request":
+		cancel event
+		if index of event-slot is 11:
+			close player's inventory
+			executeTeleport(player)
+		else if index of event-slot is 15:
+			close player's inventory
+			send "{@color3}Teleport request denied." to player
+			if {request::player::%player's uuid%} is set:
+				set {_requester} to {request::player::%player's uuid%}
+				delete {request::player::%player's uuid%}
+			else if {requesthere::player::%player's uuid%} is set:
+				set {_requester} to {requesthere::player::%player's uuid%}
+				delete {requesthere::player::%player's uuid%}
+			send "{@color3}Your teleport request was denied." to {_requester}
+
+function executeTeleport(p: player):
+	if {request::player::%{_p}'s uuid%} is set:
+		set {_other} to {request::player::%{_p}'s uuid%}
+		set {_here} to false
+	else if {requesthere::player::%{_p}'s uuid%} is set:
+		set {_other} to {requesthere::player::%{_p}'s uuid%}
+		set {_here} to true
+	
+	play sound "entity.player.levelup" to {_other}
+	play sound "entity.player.levelup" to {_p}
+	send "{@color1}Teleport accepted." to {_p}
+	
+	if {_here} is true:
+		set {_teleporter} to {_p}
+		set {_destination} to {_other}
+	else:
+		set {_teleporter} to {_other}
+		set {_destination} to {_p}
+	
+	set {_loc} to location of {_teleporter}
+	play sound "entity.enderman.teleport" to {_teleporter}
+	
+	loop 5 times:
+		play sound "entity.enderman.teleport" to {_teleporter}
+		send "{@color1}Teleporting in {@color2}%6-loop-value% {@color1}seconds. Do not move" to {_teleporter}
+		send "{@color1}Player teleporting to you in {@color2}%6-loop-value% {@color1}seconds. Do not move" to {_destination}
+		if {_loc} is not location of {_teleporter}:
+			send "{@color3}Teleport cancelled because you moved!" to {_teleporter}
+			send "{@color3}Teleport cancelled because the other player moved!" to {_destination}
+			stop
+		wait 1 second
