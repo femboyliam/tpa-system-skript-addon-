@@ -1,0 +1,108 @@
+on damage:
+    if attacker is a player:
+        if victim is a player:
+            set {combat::%attacker's uuid%} to now
+            set {combat::%victim's uuid%} to now
+            send "&cYou are now in combat! You cannot use /home for 10 seconds." to attacker
+            send "&cYou are now in combat! You cannot use /home for 10 seconds." to victim
+
+every second:
+    loop all players:
+        if {combat::%loop-player's uuid%} is set:
+            if difference between now and {combat::%loop-player's uuid%} is greater than 10 seconds:
+                delete {combat::%loop-player's uuid%}
+                send "&aYou are no longer in combat." to loop-player
+
+command /sethome <text>:
+    usage: /sethome <name>
+    trigger:
+        set {_maxHomes} to 2
+        if player has permission "more.homes":
+            set {_maxHomes} to 5
+        
+        if size of {homes::%player's uuid%::*} >= {_maxHomes}:
+            send "&cYou have reached your maximum number of homes (%{_maxHomes}%)!" to player
+            stop
+
+        if {homes::%player's uuid%::%arg-1%} is set:
+            send "&cYou already have a home named '%arg-1%'!" to player
+            stop
+
+        set {homes::%player's uuid%::%arg-1%} to player's location
+        send "&aHome '%arg-1%' set successfully!" to player
+        play sound "block.note_block.pling" with volume 1 and pitch 2 to player
+
+command /home [<text>]:
+    cooldown: 5 seconds
+    cooldown message: &cYou can only use /home every 5 seconds!
+    trigger:
+        if {combat::%player's uuid%} is set:
+            send "&cYou cannot use /home while in combat!" to player
+            play sound "block.note_block.bass" with volume 1 and pitch 1 to player
+        else:
+            if arg-1 is not set:
+                set {_homeCount} to size of {homes::%player's uuid%::*}
+                if {_homeCount} = 0:
+                    send "&cYou haven't set any homes yet!" to player
+                else if {_homeCount} = 1:
+                    loop {homes::%player's uuid%::*}:
+                        set {_home} to loop-index
+                        teleport_player(player, {_home})
+                        stop
+                else:
+                    send "&cPlease specify which home you want to teleport to:" to player
+                    loop {homes::%player's uuid%::*}:
+                        send "&7- %loop-index%" to player
+            else:
+                if {homes::%player's uuid%::%arg-1%} is set:
+                    teleport_player(player, arg-1)
+                else:
+                    send "&cYou don't have a home named '%arg-1%'!" to player
+
+function teleport_player(p: player, homeName: text):
+    if {teleporting::%{_p}%} is not set:
+        set {teleporting::%{_p}%} to true
+        set {loc::%{_p}%} to location of {_p}
+        loop 3 times:
+            set {_seconds} to 4 - loop-number
+            send actionbar "&b&lHOME &8→ &fTeleporting to '%{_homeName}%' in %{_seconds}% seconds." to {_p}
+            play sound "block.note_block.bit" with volume 1 and pitch 1 to {_p}
+            wait 1 second
+            if distance between {loc::%{_p}%} and {_p}'s location > 0.1:
+                cancel_teleport({_p}, "You have moved")
+                stop
+            if {combat::%{_p}'s uuid%} is set:
+                cancel_teleport({_p}, "You entered combat")
+                stop
+        teleport {_p} to {homes::%{_p}'s uuid%::%{_homeName}%}
+        play sound "entity.enderman.teleport" with volume 1 and pitch 1 to {_p}
+        send actionbar "&b&lHOME &8→ &fTeleported to '%{_homeName}%' successfully!" to {_p}
+        clear {teleporting::%{_p}%}
+        delete {loc::%{_p}%}
+    else:
+        send actionbar "&b&lHOME &8→ &cYou are already teleporting!" to {_p}
+        play sound "block.note_block.bass" with volume 1 and pitch 1 to {_p}
+
+function cancel_teleport(p: player, reason: text):
+    clear {teleporting::%{_p}%}
+    delete {loc::%{_p}%}
+    send actionbar "&b&lHOME &8→ &cTeleport cancelled! %{_reason}%!" to {_p}
+    play sound "block.note_block.bass" with volume 1 and pitch 1 to {_p}
+
+command /delhome <text>:
+    usage: /delhome <name>
+    trigger:
+        if {homes::%player's uuid%::%arg-1%} is set:
+            delete {homes::%player's uuid%::%arg-1%}
+            send "&aHome '%arg-1%' has been deleted!" to player
+        else:
+            send "&cYou don't have a home named '%arg-1%'!" to player
+
+command /homes:
+    trigger:
+        if size of {homes::%player's uuid%::*} = 0:
+            send "&cYou haven't set any homes yet!" to player
+        else:
+            send "&aYour homes:" to player
+            loop {homes::%player's uuid%::*}:
+                send "&7- %loop-index%" to player
